@@ -40,16 +40,22 @@ void* monitorPlaybackThread(void* arg) {
 
         pthread_mutex_lock(&playbackMutex);
         
-        // NEW: Don't auto-play if user manually stopped
+        // NEW: Don't auto-play if user manually stopped or auto-play is disabled
         if (autoPlayEnabled && isPlaying && !manualStop && player->currentSong && currentSongDuration > 0) {
             time_t elapsed = time(NULL) - songStartTime;
             
             // If elapsed time exceeds song duration + 1 second buffer, play next
             if (elapsed >= (currentSongDuration + 1)) {
-                printf("\n[Auto-Play Monitor] Song finished! Playing next...\n");
                 isPlaying = 0; // Reset flag before calling playNext
                 pthread_mutex_unlock(&playbackMutex);
                 playNext(player);
+                
+                // Check if user stopped during playNext
+                pthread_mutex_lock(&playbackMutex);
+                if (manualStop) {
+                    isPlaying = 0;
+                }
+                pthread_mutex_unlock(&playbackMutex);
                 pthread_mutex_lock(&playbackMutex);
             }
         }
@@ -67,24 +73,40 @@ void* monitorPlaybackThread(void* arg) {
 #ifdef _WIN32
 void playAudioWindows(const char* filepath) {
     char command[512];
-    mciSendString("close mp3", NULL, 0, NULL);
-    sprintf(command, "open \"%s\" type mpegvideo alias mp3", filepath);
-    if (mciSendString(command, NULL, 0, NULL) != 0) {
-        printf("Error: Could not open audio file.\n");
+    MCIERROR mciError;
+    
+    // Close any previous instances
+    mciSendString("close all", NULL, 0, NULL);
+    Sleep(300);
+    
+    // Open the MP3 file - let MCI auto-detect the type
+    sprintf(command, "open \"%s\" alias mp3", filepath);
+    mciError = mciSendString(command, NULL, 0, NULL);
+    
+    if (mciError != 0) {
+        printf("Error: Could not open audio file (Error code: %d)\n", mciError);
+        printf("File: %s\n", filepath);
+        mciSendString("close all", NULL, 0, NULL);
         return;
     }
-    if (mciSendString("play mp3", NULL, 0, NULL) != 0) {
-        printf("Error: Could not play audio file.\n");
+    
+    // Play the file
+    mciError = mciSendString("play mp3", NULL, 0, NULL);
+    if (mciError != 0) {
+        printf("Error: Could not play audio file (Error code: %d)\n", mciError);
         mciSendString("close mp3", NULL, 0, NULL);
         return;
     }
+    
     isPlaying = 1;
     printf("♪ Audio playback started!\n");
 }
 
 void stopAudioWindows() {
     mciSendString("stop mp3", NULL, 0, NULL);
+    Sleep(100);
     mciSendString("close mp3", NULL, 0, NULL);
+    Sleep(100);
     isPlaying = 0;
 }
 
@@ -157,7 +179,7 @@ void stopAudioFile() {
 #endif
     
     // NEW: Reset auto-play tracking variables when stopping
-    isPlaying = 0;
+    // Note: isPlaying may already be set to 0 before this is called
     songStartTime = 0;
     currentSongDuration = 0;
 }
@@ -241,7 +263,7 @@ void addSong(MusicPlayer* player, const char* title, const char* artist, int dur
     }
 
     player->songCount++;
-    printf("\n✓ Song added successfully! (ID: %d)\n", newSong->id);`
+    printf("\n✓ Song added successfully! (ID: %d)\n", newSong->id);
 }
 
 void deleteSong(MusicPlayer* player, int songId) {
@@ -299,15 +321,19 @@ void playSong(MusicPlayer* player, int songId) {
 
     pthread_mutex_lock(&playbackMutex);
     
+    // Stop any currently playing audio BEFORE locking
     if (isAudioPlaying()) {
+        pthread_mutex_unlock(&playbackMutex);
         stopAudioFile();
+        pthread_mutex_lock(&playbackMutex);
     }
+    
     if (player->currentSong) {
         pushToRecentlyPlayed(player, player->currentSong);
     }
     player->currentSong = song;
     
-    // NEW: Reset manual stop flag when playing new song
+    // NEW: Reset manual stop flag when playing new song manually
     manualStop = 0;
     
     // NEW: Record song start time and duration for auto-play tracking
@@ -316,7 +342,9 @@ void playSong(MusicPlayer* player, int songId) {
 
     printf("\nNow Playing: %s - %s (%d sec)\n", song->artist, song->title, song->duration);
     if (strlen(song->filepath) > 0) {
+        pthread_mutex_unlock(&playbackMutex);
         playAudioFile(song->filepath);
+        pthread_mutex_lock(&playbackMutex);
     } else {
         printf("(No audio file associated)\n");
         isPlaying = 0;
@@ -330,7 +358,7 @@ void playNext(MusicPlayer* player) {
     pthread_mutex_lock(&playbackMutex);
     
     if (!player->currentSong) {
-        printf("\nNo song currently playing.\n");b
+        printf("\nNo song currently playing.\n");
         pthread_mutex_unlock(&playbackMutex);
         return;
     }
@@ -355,24 +383,86 @@ void playNext(MusicPlayer* player) {
         return;
     }
     
+    // Check if manual stop was requested before proceeding
+    if (manualStop) {
+        isPlaying = 0;
+        pthread_mutex_unlock(&playbackMutex);
+        return;
+    }
+    
     // NEW: Update player state BEFORE releasing mutex
     if (player->currentSong) {
         pushToRecentlyPlayed(player, player->currentSong);
     }
     player->currentSong = nextSong;
+    
     songStartTime = time(NULL);
     currentSongDuration = nextSong->duration;
     
-    printf("[DEBUG] About to call playAudioFile for: %s\n", nextSong->filepath);
-    
-    // NEW: Release mutex BEFORE calling audio functions
     pthread_mutex_unlock(&playbackMutex);
     
-    // NEW: Call these functions OUTSIDE of mutex lock
+    // Stop any current playback OUTSIDE mutex
     stopAudioFile();
-    sleep(1); // NEW: Small delay to ensure clean stop
+    sleep(1); // Small delay to ensure clean stop
+    
+    // Check if manual stop was set while we were sleeping
+    pthread_mutex_lock(&playbackMutex);
+    if (manualStop) {
+        isPlaying = 0;
+        pthread_mutex_unlock(&playbackMutex);
+        return;
+    }
+    pthread_mutex_unlock(&playbackMutex);
+    
+    // Play the audio OUTSIDE mutex
     playAudioFile(nextSong->filepath);
-    printf("[DEBUG] playAudioFile completed, isPlaying = %d\n", isPlaying);
+}
+
+// NEW: Manual skip to next song - can be called while a song is playing
+void skipToNextSong(MusicPlayer* player) {
+    pthread_mutex_lock(&playbackMutex);
+    
+    if (!player->currentSong) {
+        printf("\nNo song currently playing.\n");
+        pthread_mutex_unlock(&playbackMutex);
+        return;
+    }
+
+    Song* nextSong = findNextSong(player, player->currentSong);
+    
+    if (!nextSong) {
+        printf("\n♪ No more songs in the playlist to skip to.\n");
+        pthread_mutex_unlock(&playbackMutex);
+        return;
+    }
+
+    printf("\n⏭  Skipping to next song: %s - %s (%d sec)\n", nextSong->artist, nextSong->title, nextSong->duration);
+    
+    // Check if filepath exists before trying to play
+    if (strlen(nextSong->filepath) == 0) {
+        printf("ERROR: Next song has no audio file!\n");
+        player->currentSong = nextSong;
+        pthread_mutex_unlock(&playbackMutex);
+        return;
+    }
+    
+    // Update player state
+    if (player->currentSong) {
+        pushToRecentlyPlayed(player, player->currentSong);
+    }
+    player->currentSong = nextSong;
+    
+    songStartTime = time(NULL);
+    currentSongDuration = nextSong->duration;
+    
+    pthread_mutex_unlock(&playbackMutex);
+    
+    // Stop any current playback OUTSIDE mutex
+    stopAudioFile();
+    sleep(1); // Small delay to ensure clean stop
+    
+    // Play the audio OUTSIDE mutex
+    playAudioFile(nextSong->filepath);
 }
 
 // NEW: Toggle auto-play feature on/off
@@ -515,7 +605,7 @@ int main() {
         clearScreen();
         printf("\n=== AUDIORA MUSIC PLAYER ===\n");
         printf("1. Add Song\n2. Delete Song\n3. Display Playlist\n4. Play Song\n");
-        printf("5. Stop Playback\n6. Toggle Auto-Play\n7. Save Playlist\n8. Exit\n");
+        printf("5. Stop Playback\n6. Skip to Next Song\n7. Toggle Auto-Play\n8. Save Playlist\n9. Exit\n");
 
         choice = getIntInput("Enter your choice: ");
         switch (choice) {
@@ -552,24 +642,40 @@ int main() {
                 pauseScreen();
                 break;
             }
-            case 5:
+            case 5: {
+                // Lock and immediately set all stop flags
                 pthread_mutex_lock(&playbackMutex);
-                manualStop = 1; // NEW: Set flag to prevent auto-play
-                stopAudioFile();
-                printf("\nPlayback stopped.\n");
+                manualStop = 1;
+                isPlaying = 0;
                 pthread_mutex_unlock(&playbackMutex);
+                
+                // Call the proper stop audio function
+                stopAudioFile();
+                
+                // Additional verification
+                pthread_mutex_lock(&playbackMutex);
+                isPlaying = 0;
+                pthread_mutex_unlock(&playbackMutex);
+                
+                printf("\nPlayback stopped.\n");
                 pauseScreen();
                 break;
-            case 6:
+            }
+            case 6: {
+                skipToNextSong(player);
+                pauseScreen();
+                break;
+            }
+            case 7:
                 toggleAutoPlay(player);
                 pauseScreen();
                 break;
-            case 7:
+            case 8:
                 savePlaylistToFile(player, filename);
                 printf("\nPlaylist saved.\n");
                 pauseScreen();
                 break;
-            case 8:
+            case 9:
                 savePlaylistToFile(player, filename);
                 freeMusicPlayer(player);
                 printf("\nThanks For Using Audiora\n");

@@ -1,1 +1,6 @@
-1
+5
+1|Imagine|John Lennon|183|D:\\Projects\\Audiora Music Player\\Songs\\Imagine.mp3
+2|Thriller|Michael Jackson|357|D:\\Projects\\Audiora Music Player\\Songs\\Thriller.mp3
+3|Hotel California|Eagles|391|D:\\Projects\\Audiora Music Player\\Songs\\Hotel California.mp3
+4|Careless Whisper|George Michael|346|D:\\Projects\\Audiora Music Player\\Songs\\Careless Whisper.mp3
+5|Can't Help Falling In Love|Elvis Presley|179|D:\\Projects\\Audiora Music Player\\Songs\\Can't Help Falling In Love.mp3
