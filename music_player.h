@@ -66,6 +66,7 @@ int getPlaylistSize(MusicPlayer* player);
 // Playback Operations
 void playSong(MusicPlayer* player, int songId);
 void playNext(MusicPlayer* player);
+void skipToNextSong(MusicPlayer* player);
 void displayCurrentSong(MusicPlayer* player);
 
 // Stack Operations (Recently Played)
