@@ -7,7 +7,7 @@
     #include <windows.h>
     #include <mmsystem.h>
     #include <unistd.h>
-    #pragma comment(lib, "winmm.lib")
+    // Note: Link with -lwinmm flag during compilation
     
 #elif __APPLE__
     #include <AudioToolbox/AudioToolbox.h>
@@ -84,7 +84,7 @@ void playAudioWindows(const char* filepath) {
     mciError = mciSendString(command, NULL, 0, NULL);
     
     if (mciError != 0) {
-        printf("Error: Could not open audio file (Error code: %d)\n", mciError);
+        printf("Error: Could not open audio file (Error code: %lu)\n", (unsigned long)mciError);
         printf("File: %s\n", filepath);
         mciSendString("close all", NULL, 0, NULL);
         return;
@@ -93,7 +93,7 @@ void playAudioWindows(const char* filepath) {
     // Play the file
     mciError = mciSendString("play mp3", NULL, 0, NULL);
     if (mciError != 0) {
-        printf("Error: Could not play audio file (Error code: %d)\n", mciError);
+        printf("Error: Could not play audio file (Error code: %lu)\n", (unsigned long)mciError);
         mciSendString("close mp3", NULL, 0, NULL);
         return;
     }
@@ -467,6 +467,7 @@ void skipToNextSong(MusicPlayer* player) {
 
 // NEW: Toggle auto-play feature on/off
 void toggleAutoPlay(MusicPlayer* player) {
+    (void)player;  // Suppress unused parameter warning
     autoPlayEnabled = !autoPlayEnabled;
     printf("\nAuto-play is now %s.\n", autoPlayEnabled ? "ENABLED" : "DISABLED");
 }
@@ -562,6 +563,69 @@ void loadPlaylistFromFile(MusicPlayer* player, const char* filename) {
 }
 
 // ============================================================================
+// DISPLAY FUNCTIONS
+// ============================================================================
+
+void displayPlaylist(MusicPlayer* player) {
+    clearScreen();
+    
+    // Print header with ASCII-compatible characters
+    printf("========================================================================\n");
+    printf("                        [MUSIC] PLAYLIST [MUSIC]                       \n");
+    printf("========================================================================\n");
+    
+    if (!player->playlist) {
+        printf("\nPlaylist is empty!\n");
+        return;
+    }
+    
+    // Print column headers
+    printf("ID    %-30s %-20s Duration  Audio\n", "Title", "Artist");
+    printf("------------------------------------------------------------------------\n");
+    
+    // Print each song
+    Song* current = player->playlist;
+    while (current) {
+        // Determine audio status
+        char audioStatus[3];
+        if (strlen(current->filepath) == 0) {
+            strcpy(audioStatus, "X");  // No file specified
+        } else {
+            // Check if file exists
+            FILE* test = fopen(current->filepath, "r");
+            if (test) {
+                fclose(test);
+                strcpy(audioStatus, "Y");  // Audio available
+            } else {
+                strcpy(audioStatus, "N");  // File missing
+            }
+        }
+        
+        // Convert duration to MM:SS format
+        int minutes = current->duration / 60;
+        int seconds = current->duration % 60;
+        
+        // Truncate title and artist if too long
+        char truncTitle[31];
+        char truncArtist[21];
+        strncpy(truncTitle, current->title, 30);
+        truncTitle[30] = '\0';
+        strncpy(truncArtist, current->artist, 20);
+        truncArtist[20] = '\0';
+        
+        printf("%-5d %-30s %-20s %02d:%02d     %s\n", 
+               current->id, truncTitle, truncArtist, minutes, seconds, audioStatus);
+        
+        current = current->next;
+    }
+    
+    // Print footer with legend
+    printf("------------------------------------------------------------------------\n");
+    printf("Total Songs: %d  |  Y = Audio Available  |  N = File Missing  | X = No File\n", 
+           player->songCount);
+}
+
+// ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 void clearScreen() {
@@ -627,12 +691,7 @@ int main() {
                 break;
             }
             case 3: {
-                Song* s = player->playlist;
-                while (s) {
-                    printf("%d | %s - %s (%d sec) [%s]\n", s->id, s->artist, s->title, s->duration,
-                           strlen(s->filepath) ? "Audio ✓" : "No File");
-                    s = s->next;
-                }
+                displayPlaylist(player);
                 pauseScreen();
                 break;
             }
