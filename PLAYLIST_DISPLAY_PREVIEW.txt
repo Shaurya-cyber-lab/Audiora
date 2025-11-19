@@ -1,0 +1,34 @@
+AUDIORA PLAYLIST DISPLAY - PREVIEW
+==================================
+
+When you run the program and select option 3 (Display Playlist), 
+you will see output similar to this:
+
+========================================================================
+                        [MUSIC] PLAYLIST [MUSIC]                       
+========================================================================
+ID    Title                          Artist               Duration  Audio
+------------------------------------------------------------------------
+1     Imagine                        John Lennon          03:03     Y
+2     Thriller                       Michael Jackson      05:57     Y
+3     Hotel California               Eagles               06:31     N
+4     Careless Whisper               George Michael       05:46     Y
+5     Can't Help Falling In Love     Elvis Presley        02:59     Y
+------------------------------------------------------------------------
+Total Songs: 5  |  Y = Audio Available  |  N = File Missing  | X = No File
+
+FEATURES:
+=========
+✓ Clean, professional table format
+✓ ID column - unique song identifier
+✓ Title column - song name (truncated to 30 chars)
+✓ Artist column - artist name (truncated to 20 chars)
+✓ Duration column - in MM:SS format (minutes:seconds)
+✓ Audio column - shows file status:
+  - Y = Audio file found and ready to play
+  - N = Audio file path specified but file not found
+  - X = No audio file path specified
+
+✓ Footer shows total song count and legend
+✓ Proper alignment and spacing for readability
+✓ ASCII-compatible characters (works on all Windows terminals)
