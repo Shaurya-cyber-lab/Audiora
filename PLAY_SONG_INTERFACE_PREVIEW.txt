@@ -1,0 +1,54 @@
+AUDIORA - IMPROVED PLAY SONG INTERFACE PREVIEW
+==============================================
+
+FLOW:
+=====
+
+1. User selects option 4 from main menu:
+   Enter your choice: 4
+
+2. Playlist is displayed:
+   ========================================================================
+                           [MUSIC] PLAYLIST [MUSIC]                       
+   ========================================================================
+   ID    Title                          Artist               Duration  Audio
+   ------------------------------------------------------------------------
+   1     Imagine                        John Lennon          03:03     Y
+   2     Thriller                       Michael Jackson      05:57     Y
+   3     Hotel California               Eagles               06:31     N
+   4     Careless Whisper               George Michael       05:46     Y
+   5     Can't Help Falling In Love     Elvis Presley        02:59     Y
+   ------------------------------------------------------------------------
+   Total Songs: 5  |  Y = Audio Available  |  N = File Missing  | X = No File
+
+3. User is prompted to select a song:
+   Enter song ID to play: 1
+
+4. Beautiful "Now Playing" screen appears:
+   
+   =================================================================
+                       NOW PLAYING
+   =================================================================
+   Title    : Thriller
+   Artist   : Michael Jackson
+   Duration : 5:57
+   File     : D:\Projects\Audiora Music Player\Songs\Thriller.mp3
+   =================================================================
+
+   Controls:
+     [Press Enter to return to Main Menu]
+
+     >> Audio is now playing...
+
+
+5. When user presses Enter, they're back to main menu
+
+KEY FEATURES OF NEW INTERFACE:
+===============================
+✓ Displays playlist before asking for song ID
+✓ Professional "Now Playing" screen with clear formatting
+✓ Song details: Title, Artist, Duration (MM:SS), File path
+✓ Easy-to-read controls instruction
+✓ Cleaner, more organized display
+✓ User-friendly workflow
+✓ Consistent with improved display playlist UI

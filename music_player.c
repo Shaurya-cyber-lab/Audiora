@@ -7,6 +7,7 @@
     #include <windows.h>
     #include <mmsystem.h>
     #include <unistd.h>
+    #include <conio.h>  // For _kbhit() and _getch()
     // Note: Link with -lwinmm flag during compilation
     
 #elif __APPLE__
@@ -315,7 +316,7 @@ Song* findNextSong(MusicPlayer* player, Song* currentSong) {
 void playSong(MusicPlayer* player, int songId) {
     Song* song = findSongById(player, songId);
     if (!song) {
-        printf("\nSong not found!\n");
+        printf("\n✗ Song not found!\n");
         return;
     }
 
@@ -340,14 +341,154 @@ void playSong(MusicPlayer* player, int songId) {
     songStartTime = time(NULL);
     currentSongDuration = song->duration;
 
-    printf("\nNow Playing: %s - %s (%d sec)\n", song->artist, song->title, song->duration);
+    // Display beautiful now playing interface
+    clearScreen();
+    printf("\n");
+    printf("=================================================================\n");
+    printf("                    NOW PLAYING\n");
+    printf("=================================================================\n");
+    printf("Title    : %s\n", song->title);
+    printf("Artist   : %s\n", song->artist);
+    
+    // Format duration as MM:SS
+    int minutes = song->duration / 60;
+    int seconds = song->duration % 60;
+    printf("Duration : %d:%02d\n", minutes, seconds);
+    printf("File     : %s\n", strlen(song->filepath) > 0 ? song->filepath : "(No file)");
+    printf("=================================================================\n\n");
+    
     if (strlen(song->filepath) > 0) {
         pthread_mutex_unlock(&playbackMutex);
         playAudioFile(song->filepath);
+        
+        // Display playback controls
+        printf("\n");
+        printf("Controls:\n");
+        printf("  [Press Spacebar to stop playback]\n");
+        printf("  [Press N to play next song]\n");
+        printf("  [Press Enter to return to Main Menu]\n\n");
+        printf("  >> Audio is now playing...\n\n");
+        
+        // Handle user input - Windows specific non-blocking input
+        #ifdef _WIN32
+        int shouldExit = 0;
+        
+        while (!shouldExit) {
+            // Non-blocking keyboard check on Windows
+            if (_kbhit()) {
+                int inputChar = _getch();
+                
+                // Check for spacebar (ASCII 32)
+                if (inputChar == 32) {  // Spacebar
+                    printf("\n⏹ Playback stopped.\n");
+                    stopAudioFile();
+                    printf("\nReturning to Main Menu...\n");
+                    shouldExit = 1;
+                    break;
+                }
+                // Check for 'N' or 'n' key to play next song
+                else if (inputChar == 'n' || inputChar == 'N') {
+                    printf("\n\n⏭  Playing next song...\n\n");
+                    skipToNextSong(player);
+                    
+                    // Show now playing for the next song
+                    if (player->currentSong) {
+                        Song* nextSong = player->currentSong;
+                        clearScreen();
+                        printf("\n");
+                        printf("=================================================================\n");
+                        printf("                    NOW PLAYING\n");
+                        printf("=================================================================\n");
+                        printf("Title    : %s\n", nextSong->title);
+                        printf("Artist   : %s\n", nextSong->artist);
+                        
+                        int min = nextSong->duration / 60;
+                        int sec = nextSong->duration % 60;
+                        printf("Duration : %d:%02d\n", min, sec);
+                        printf("File     : %s\n", strlen(nextSong->filepath) > 0 ? nextSong->filepath : "(No file)");
+                        printf("=================================================================\n\n");
+                        
+                        printf("Controls:\n");
+                        printf("  [Press Spacebar to stop playback]\n");
+                        printf("  [Press N to play next song]\n");
+                        printf("  [Press Enter to return to Main Menu]\n\n");
+                        printf("  >> Audio is now playing...\n\n");
+                    }
+                }
+                // Check for Enter key (ASCII 13)
+                else if (inputChar == 13) {  // Enter
+                    printf("\nReturning to Main Menu...\n");
+                    shouldExit = 1;
+                    break;
+                }
+            }
+            // Small sleep to prevent CPU spinning
+            Sleep(50);
+        }
+        #else
+        // Fallback for non-Windows systems (original behavior)
+        int inputChar;
+        int shouldExit = 0;
+        
+        while (!shouldExit) {
+            inputChar = getchar();
+            
+            // Check for spacebar to stop playback
+            if (inputChar == ' ') {
+                printf("\n⏹ Playback stopped.\n");
+                stopAudioFile();
+                printf("\nReturning to Main Menu...\n");
+                shouldExit = 1;
+                break;
+            }
+            // Ignore any remaining whitespace/newlines in buffer
+            else if (inputChar == '\n' || inputChar == '\r') {
+                // Only exit if it's the first character (not a buffered newline)
+                printf("\nReturning to Main Menu...\n");
+                shouldExit = 1;
+                break;
+            }
+            // Check for 'N' or 'n' key to play next song
+            else if (inputChar == 'n' || inputChar == 'N') {
+                // Clear the input buffer (consume any trailing newline from hitting N+Enter)
+                int c;
+                while ((c = getchar()) != '\n' && c != '\r' && c != EOF);
+                
+                printf("\n\n⏭  Playing next song...\n\n");
+                skipToNextSong(player);
+                
+                // Show now playing for the next song
+                if (player->currentSong) {
+                    Song* nextSong = player->currentSong;
+                    clearScreen();
+                    printf("\n");
+                    printf("=================================================================\n");
+                    printf("                    NOW PLAYING\n");
+                    printf("=================================================================\n");
+                    printf("Title    : %s\n", nextSong->title);
+                    printf("Artist   : %s\n", nextSong->artist);
+                    
+                    int min = nextSong->duration / 60;
+                    int sec = nextSong->duration % 60;
+                    printf("Duration : %d:%02d\n", min, sec);
+                    printf("File     : %s\n", strlen(nextSong->filepath) > 0 ? nextSong->filepath : "(No file)");
+                    printf("=================================================================\n\n");
+                    
+                    printf("Controls:\n");
+                    printf("  [Press Spacebar to stop playback]\n");
+                    printf("  [Press N to play next song]\n");
+                    printf("  [Press Enter to return to Main Menu]\n\n");
+                    printf("  >> Audio is now playing...\n\n");
+                }
+            }
+        }
+        #endif
+        
         pthread_mutex_lock(&playbackMutex);
     } else {
-        printf("(No audio file associated)\n");
+        printf("✗ No audio file associated with this song.\n");
         isPlaying = 0;
+        pthread_mutex_unlock(&playbackMutex);
     }
 
     pthread_mutex_unlock(&playbackMutex);
@@ -669,7 +810,7 @@ int main() {
         clearScreen();
         printf("\n=== AUDIORA MUSIC PLAYER ===\n");
         printf("1. Add Song\n2. Delete Song\n3. Display Playlist\n4. Play Song\n");
-        printf("5. Stop Playback\n6. Skip to Next Song\n7. Toggle Auto-Play\n8. Save Playlist\n9. Exit\n");
+        printf("5. Toggle Auto-Play\n6. Save Playlist\n7. Exit\n");
 
         choice = getIntInput("Enter your choice: ");
         switch (choice) {
@@ -696,45 +837,21 @@ int main() {
                 break;
             }
             case 4: {
-                int id = getIntInput("Enter Song ID: ");
+                displayPlaylist(player);
+                int id = getIntInput("\nEnter song ID to play: ");
                 playSong(player, id);
-                pauseScreen();
                 break;
             }
-            case 5: {
-                // Lock and immediately set all stop flags
-                pthread_mutex_lock(&playbackMutex);
-                manualStop = 1;
-                isPlaying = 0;
-                pthread_mutex_unlock(&playbackMutex);
-                
-                // Call the proper stop audio function
-                stopAudioFile();
-                
-                // Additional verification
-                pthread_mutex_lock(&playbackMutex);
-                isPlaying = 0;
-                pthread_mutex_unlock(&playbackMutex);
-                
-                printf("\nPlayback stopped.\n");
-                pauseScreen();
-                break;
-            }
-            case 6: {
-                skipToNextSong(player);
-                pauseScreen();
-                break;
-            }
-            case 7:
+            case 5:
                 toggleAutoPlay(player);
                 pauseScreen();
                 break;
-            case 8:
+            case 6:
                 savePlaylistToFile(player, filename);
                 printf("\nPlaylist saved.\n");
                 pauseScreen();
                 break;
-            case 9:
+            case 7:
                 savePlaylistToFile(player, filename);
                 freeMusicPlayer(player);
                 printf("\nThanks For Using Audiora\n");
