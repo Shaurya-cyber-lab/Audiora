@@ -1,0 +1,58 @@
+AUDIORA - ENHANCED PLAY SONG INTERFACE WITH ADVANCED CONTROLS
+==============================================================
+
+IMPROVED CONTROLS SECTION:
+==========================
+
+When a song is playing, users now see:
+
+=================================================================
+                   NOW PLAYING
+=================================================================
+Title    : Thriller
+Artist   : Michael Jackson
+Duration : 5:57
+File     : D:\Projects\Audiora Music Player\Songs\Thriller.mp3
+=================================================================
+
+Controls:
+  [Press N to play next song]
+  [Press Enter to return to Main Menu]
+
+  >> Audio is now playing...
+
+
+USER INTERACTIONS:
+===================
+
+1. N KEY (Next):
+   - Skips to the next song in the playlist
+   - Displays the new "Now Playing" screen for the next song
+   - Audio automatically stops playing the current song
+   - User can continue pressing N to skip through songs
+
+   Example flow:
+   - Playing: Thriller (ID 2)
+   - User presses N
+   - Now displays: Hotel California (ID 3)
+   - User can press N again to play song ID 4
+   - Or press Enter to return to main menu
+
+2. ENTER KEY:
+   - Returns to the main menu
+   - Stops audio playback
+   - Allows user to perform other operations
+
+KEYBOARD SHORTCUTS:
+====================
+N              = Play Next Song in Playlist
+↵ (Enter)      = Return to Main Menu
+
+BENEFITS:
+==========
+✓ Seamless song navigation without returning to menu
+✓ Quick browsing through playlist
+✓ Better user experience during playback
+✓ Simple and intuitive keyboard controls
+✓ Works reliably on all Windows terminals
+✓ No need to manually select song IDs repeatedly
